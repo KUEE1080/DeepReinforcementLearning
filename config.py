@@ -12,19 +12,19 @@ ALPHA = 0.8
 BATCH_SIZE = 256
 EPOCHS = 1
 REG_CONST = 0.0001
-LEARNING_RATE = 0.1
+LEARNING_RATE = 0.07
 MOMENTUM = 0.9
 TRAINING_LOOPS = 10
 
 HIDDEN_CNN_LAYERS = [
-	{'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
-	 , {'filters':75, 'kernel_size': (4,4)}
+	{'filters': 75, 'kernel_size': (4, 4)}
+	, {'filters': 75, 'kernel_size': (4, 4)}
+	, {'filters': 75, 'kernel_size': (4, 4)}
+	, {'filters': 75, 'kernel_size': (4, 4)}
+	, {'filters': 75, 'kernel_size': (4, 4)}
+	, {'filters': 75, 'kernel_size': (4, 4)}
 	]
 
 #### EVALUATION
-EVAL_EPISODES = 20
+EVAL_EPISODES = 70
 SCORING_THRESHOLD = 1.3

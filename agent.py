@@ -4,8 +4,10 @@ import numpy as np
 import random
 
 import MCTS as mc
-from game import GameState
+from games.connect6.game import GameState
 from loss import softmax_cross_entropy_with_logits
+
+# from game import GameState
 
 import config
 import loggers as lg
@@ -15,25 +17,27 @@ import matplotlib.pyplot as plt
 from IPython import display
 import pylab as pl
 
+# import multiprocessing as mp
 
-class User():
+
+class User:  # 플레이어가 인간인 경우
 	def __init__(self, name, state_size, action_size):
 		self.name = name
 		self.state_size = state_size
 		self.action_size = action_size
 
-	def act(self, state, tau):
-		action = input('Enter your chosen action: ')
+	def act(self, state, tau):  # 이건 파라미터를 1도 안쓴다. (착수 위치 결정하는 중요한 코드)
+		action = int(input('Enter your chosen action: '))
 		pi = np.zeros(self.action_size)
 		pi[action] = 1
 		value = None
 		NN_value = None
-		return (action, pi, value, NN_value)
+		return action, pi, value, NN_value
 
 
-
-class Agent():
+class Agent:  # 플레이어가 인공지능인 경우
 	def __init__(self, name, state_size, action_size, mcts_simulations, cpuct, model):
+		# (이름, 상태 크기, action 크기, config.MCTS_SIMS, config.CPUCT, 뉴럴 네트워크 모델 유형)
 		self.name = name
 
 		self.state_size = state_size
@@ -52,10 +56,9 @@ class Agent():
 		self.val_overall_loss = []
 		self.val_value_loss = []
 		self.val_policy_loss = []
+		# self.pool = mp.Pool(4)
 
-	
-	def simulate(self):
-
+	def simulate(self):  # MCTS 프로세스 실행
 		lg.logger_mcts.info('ROOT NODE...%s', self.mcts.root.state.id)
 		self.mcts.root.state.render(lg.logger_mcts)
 		lg.logger_mcts.info('CURRENT PLAYER...%d', self.mcts.root.state.playerTurn)
@@ -70,25 +73,26 @@ class Agent():
 		##### BACKFILL THE VALUE THROUGH THE TREE
 		self.mcts.backFill(leaf, value, breadcrumbs)
 
-
-	def act(self, state, tau):
-
+	def act(self, state, tau):  # MCTS 시뮬레이션 과정 지속 반복하여 최적의 action 분석 리턴 (tau = 0 or 1)
 		if self.mcts == None or state.id not in self.mcts.tree:
 			self.buildMCTS(state)
 		else:
 			self.changeRootMCTS(state)
 
-		#### run the simulation
+
+		# run the simulation
 		for sim in range(self.MCTSsimulations):
 			lg.logger_mcts.info('***************************')
 			lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
+			print('****** SIMULATION %d ******', sim + 1)
 			lg.logger_mcts.info('***************************')
-			self.simulate()
+			self.simulate()  # 시뮬레이션 시행 코드
+			# self.pool.apply_async(self.simulate)
 
-		#### get action values
+		# get action values
 		pi, values = self.getAV(1)
 
-		####pick the action
+		# pick the action
 		action, value = self.chooseAction(pi, values, tau)
 
 		nextState, _, _ = state.takeAction(action)
@@ -100,8 +104,7 @@ class Agent():
 		lg.logger_mcts.info('MCTS PERCEIVED VALUE...%f', value)
 		lg.logger_mcts.info('NN PERCEIVED VALUE...%f', NN_value)
 
-		return (action, pi, value, NN_value)
-
+		return action, pi, value, NN_value
 
 	def get_preds(self, state):
 		#predict the leaf
@@ -116,7 +119,7 @@ class Agent():
 
 		allowedActions = state.allowedActions
 
-		mask = np.ones(logits.shape,dtype=bool)
+		mask = np.ones(logits.shape, dtype=bool)
 		mask[allowedActions] = False
 		logits[mask] = -100
 
@@ -124,15 +127,14 @@ class Agent():
 		odds = np.exp(logits)
 		probs = odds / np.sum(odds) ###put this just before the for?
 
-		return ((value, probs, allowedActions))
-
+		return value, probs, allowedActions
 
 	def evaluateLeaf(self, leaf, value, done, breadcrumbs):
 
 		lg.logger_mcts.info('------EVALUATING LEAF------')
 
 		if done == 0:
-	
+
 			value, probs, allowedActions = self.get_preds(leaf.state)
 			lg.logger_mcts.info('PREDICTED VALUE FOR %d: %f', leaf.state.playerTurn, value)
 
@@ -150,19 +152,17 @@ class Agent():
 
 				newEdge = mc.Edge(leaf, node, probs[idx], action)
 				leaf.edges.append((action, newEdge))
-				
+
 		else:
 			lg.logger_mcts.info('GAME VALUE FOR %d: %f', leaf.playerTurn, value)
 
 		return ((value, breadcrumbs))
 
-
-		
 	def getAV(self, tau):
 		edges = self.mcts.root.edges
 		pi = np.zeros(self.action_size, dtype=np.integer)
 		values = np.zeros(self.action_size, dtype=np.float32)
-		
+
 		for action, edge in edges:
 			pi[action] = pow(edge.stats['N'], 1/tau)
 			values[action] = edge.stats['Q']
@@ -174,31 +174,33 @@ class Agent():
 		if tau == 0:
 			actions = np.argwhere(pi == max(pi))
 			action = random.choice(actions)[0]
-		else:
+		else:  # tau가 1인 경우
 			action_idx = np.random.multinomial(1, pi)
-			action = np.where(action_idx==1)[0][0]
+			action = np.where(action_idx == 1)[0][0]
 
+		print("pi: " + str(pi))
+		print("values: " + str(values))
+		print("action: " + str(action))
 		value = values[action]
 
 		return action, value
 
-	def replay(self, ltmemory):
+	def replay(self, ltmemory):  # 뉴럴 네트워크 재 교육
 		lg.logger_mcts.info('******RETRAINING MODEL******')
-
 
 		for i in range(config.TRAINING_LOOPS):
 			minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
 
 			training_states = np.array([self.model.convertToModelInput(row['state']) for row in minibatch])
 			training_targets = {'value_head': np.array([row['value'] for row in minibatch])
-								, 'policy_head': np.array([row['AV'] for row in minibatch])} 
+								, 'policy_head': np.array([row['AV'] for row in minibatch])}
 
 			fit = self.model.fit(training_states, training_targets, epochs=config.EPOCHS, verbose=1, validation_split=0, batch_size = 32)
 			lg.logger_mcts.info('NEW LOSS %s', fit.history)
 
 			self.train_overall_loss.append(round(fit.history['loss'][config.EPOCHS - 1],4))
-			self.train_value_loss.append(round(fit.history['value_head_loss'][config.EPOCHS - 1],4)) 
-			self.train_policy_loss.append(round(fit.history['policy_head_loss'][config.EPOCHS - 1],4)) 
+			self.train_value_loss.append(round(fit.history['value_head_loss'][config.EPOCHS - 1],4))
+			self.train_policy_loss.append(round(fit.history['policy_head_loss'][config.EPOCHS - 1],4))
 
 		plt.plot(self.train_overall_loss, 'k')
 		plt.plot(self.train_value_loss, 'k:')

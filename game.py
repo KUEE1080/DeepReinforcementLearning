@@ -7,9 +7,9 @@ class Game:
 		self.currentPlayer = 1
 		self.gameState = GameState(np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], dtype=np.int), 1)
 		self.actionSpace = np.array([0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], dtype=np.int)
-		self.pieces = {'1':'X', '0': '-', '-1':'O'}
-		self.grid_shape = (6,7)
-		self.input_shape = (2,6,7)
+		self.pieces = {'1': 'X', '0': '-', '-1': 'O'}
+		self.grid_shape = (6, 7)
+		self.input_shape = (2, 6, 7)
 		self.name = 'connect4'
 		self.state_size = len(self.gameState.binary)
 		self.action_size = len(self.actionSpace)
@@ -24,7 +24,7 @@ class Game:
 		self.gameState = next_state
 		self.currentPlayer = -self.currentPlayer
 		info = None
-		return ((next_state, value, done, info))
+		return next_state, value, done, info
 
 	def identities(self, state, actionValues):
 		identities = [(state,actionValues)]
@@ -163,7 +163,7 @@ class GameState():
 
 		position = np.append(currentplayer_position,other_position)
 
-		return (position)
+		return position
 
 	def _convertStateToId(self):
 		player1_position = np.zeros(len(self.board), dtype=np.int)
@@ -182,7 +182,7 @@ class GameState():
 		if np.count_nonzero(self.board) == 42:
 			return 1
 
-		for x,y,z,a in self.winners:
+		for x, y, z, a in self.winners:
 			if (self.board[x] + self.board[y] + self.board[z] + self.board[a] == 4 * -self.playerTurn):
 				return 1
 		return 0
